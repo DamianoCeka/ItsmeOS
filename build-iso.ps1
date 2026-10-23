@@ -161,8 +161,8 @@ try {
     $disk = Mount-DiskImage -ImagePath $IsoPath -PassThru
     $isoMounted = $true
     $letter = ($disk | Get-Volume).DriveLetter
-    & robocopy.exe "$($letter):\" $IsoDir /E /NFL /NDL /NJH /NJS /NP /R:1 /W:1 | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "robocopy fallito (codice $LASTEXITCODE)" }
+    $copy = Invoke-ItsmeNative robocopy.exe @("$($letter):\", $IsoDir, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:1', '/W:1')
+    if ($copy.ExitCode -ge 8) { throw "robocopy fallito (codice $($copy.ExitCode)): $($copy.Output)" }
     Dismount-DiskImage -ImagePath $IsoPath | Out-Null
     $isoMounted = $false
     Get-ChildItem -LiteralPath $IsoDir -Recurse -File | ForEach-Object { $_.IsReadOnly = $false }
@@ -254,8 +254,8 @@ try {
 
     # --- 6. Pulizia componenti --------------------------------------------
     Write-Step 'Pulisco i componenti superati (alcuni minuti)'
-    & dism.exe /English /Image:$MountDir /Cleanup-Image /StartComponentCleanup /ResetBase | Out-Null
-    if ($LASTEXITCODE -ne 0) { Write-ItsmeLog "Pulizia componenti non completata (codice $LASTEXITCODE), continuo" 'WARN' }
+    $cleanup = Invoke-ItsmeNative dism.exe @('/English', "/Image:$MountDir", '/Cleanup-Image', '/StartComponentCleanup', '/ResetBase')
+    if ($cleanup.ExitCode -ne 0) { Write-ItsmeLog "Pulizia componenti non completata (codice $($cleanup.ExitCode)), continuo" 'WARN' }
 
     # --- 7. Salvataggio e compressione --------------------------------------
     Write-Step "Salvo e ricomprimo l'immagine"
@@ -278,8 +278,8 @@ try {
     # --- 9. ISO -------------------------------------------------------------
     Write-Step 'Creo la ISO'
     $bootData = '2#p0,e,b{0}#pEF,e,b{1}' -f (Join-Path $IsoDir 'boot\etfsboot.com'), (Join-Path $IsoDir 'efi\microsoft\boot\efisys.bin')
-    & $oscdimg -m -o -u2 -udfver102 "-bootdata:$bootData" -lITSMEOS $IsoDir $OutputIso | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "oscdimg fallito (codice $LASTEXITCODE)" }
+    $iso = Invoke-ItsmeNative $oscdimg @('-m', '-o', '-u2', '-udfver102', "-bootdata:$bootData", '-lITSMEOS', $IsoDir, $OutputIso)
+    if ($iso.ExitCode -ne 0) { throw "oscdimg fallito (codice $($iso.ExitCode)): $($iso.Output)" }
 
     $size = (Get-Item -LiteralPath $OutputIso).Length / 1GB
     $minutes = ((Get-Date) - $started).TotalMinutes
