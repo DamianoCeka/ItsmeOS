@@ -1,0 +1,8 @@
+# Funzionalità opzionali rimosse dalla ISO (prefisso del nome).
+# Quelle già assenti nella tua build vengono ignorate.
+
+App.StepsRecorder
+App.Support.QuickAssist
+Browser.InternetExplorer
+MathRecognizer
+Microsoft.Windows.WordPad

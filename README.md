@@ -1,1 +1,214 @@
 # ItsmeOS
+
+Windows 11 ottimizzato per il gaming competitivo e per chi gioca e streamma
+sullo stesso PC.
+
+ItsmeOS non è una ISO da scaricare. È un insieme di script che:
+
+- **crea la tua ISO** partendo dalla ISO ufficiale di Windows 11 (`build-iso.ps1`)
+- **ottimizza un Windows già installato**, senza reinstallare (`Set-ItsmeProfile.ps1`)
+- **mentre giochi spegne tutto ciò che interrompe**: notifiche, processi in
+  background, download degli aggiornamenti e indicizzazione
+  (`Start-ItsmeGameSession.ps1`)
+
+Ogni modifica viene salvata in un backup e si annulla con un comando.
+
+> Stato: **v0.1, in sviluppo**. La CI prova profili e rollback su Windows a
+> ogni commit, ma la ISO va ancora provata su PC veri. Vedi
+> [Da verificare](#da-verificare).
+
+## Perché non una ISO già pronta
+
+Ridistribuire una ISO di Windows modificata viola la licenza Microsoft, e una
+ISO scaricata da sconosciuti è il modo più semplice per prendersi un malware.
+Qui ognuno crea la propria ISO dalla propria copia ufficiale di Windows, e
+può leggere ogni riga di quello che cambia.
+
+## Compatibilità con gli anti-cheat
+
+ItsmeOS non tocca TPM 2.0, Secure Boot, Defender né i componenti di sistema
+che servono agli anti-cheat. **Vanguard (VALORANT, League of Legends), FACEIT,
+Easy Anti-Cheat e BattlEye funzionano come su Windows originale.**
+
+La sessione di gioco non apre il processo del gioco: legge solo il percorso
+dell'eseguibile, come fa Gestione attività.
+
+## Cosa migliora davvero
+
+| | Windows 11 standard | ItsmeOS (obiettivo) |
+|---|---|---|
+| Spazio su disco dopo l'installazione | 25-30 GB | 15-18 GB |
+| RAM occupata a riposo | 3-4 GB | 2-2,5 GB |
+| Processi a riposo | 150-200 | 90-120 |
+| Interruzioni durante il gioco | notifiche, aggiornamenti, popup | nessuna |
+
+Il guadagno principale è nella **stabilità dei frame** (1% low, frame time
+regolari) e nell'**assenza di interruzioni**, non negli FPS medi, che di
+solito salgono del 1-5%. Chi promette +50% FPS da un tweak di Windows sta
+vendendo qualcosa.
+
+I numeri della tabella sono obiettivi: li misureremo con CapFrameX o
+PresentMon prima e dopo, sulle stesse partite, e li pubblicheremo qui.
+
+## Profili
+
+| | Competitive | Balanced | Streaming |
+|---|:---:|:---:|:---:|
+| Scheduler: priorità al gioco in primo piano | ✓ | ✓ | |
+| Scheduler: CPU equa per gioco e OBS | | | ✓ |
+| MMCSS: GPU e CPU prioritarie per i giochi | ✓ | ✓ | ✓ |
+| Rete senza throttling multimediale | ✓ | ✓ | ✓ |
+| Timer ad alta risoluzione globale | ✓ | ✓ | ✓ |
+| Hardware GPU scheduling (serve al frame generation) | ✓ | ✓ | ✓ |
+| Interrupt MSI per la scheda video | ✓ | ✓ | ✓ |
+| Piano energetico Prestazioni eccellenti, core parking spento | ✓ | | ✓ |
+| Nessun EcoQoS sui processi in background | ✓ | | ✓ |
+| Game DVR spento | ✓ | ✓ | |
+| Accelerazione del mouse spenta | ✓ | | |
+| ACK TCP immediato (Nagle) | ✓ | | |
+| App dello Store bloccate in background | ✓ | | |
+| SysMain (Superfetch) spento | ✓ | | ✓ |
+| Indicizzazione dei file spenta | ✓ | | |
+| Telemetria, Recall, Copilot, pubblicità e suggerimenti spenti | ✓ | ✓ | ✓ |
+| Windows Update senza riavvii automatici e senza driver GPU | ✓ | ✓ | ✓ |
+| Popup tasti permanenti (Shift x5) spento | ✓ | ✓ | ✓ |
+| Ibernazione e spazio riservato agli aggiornamenti liberati | ✓ | ✓ | ✓ |
+| Sessione di gioco automatica | ✓ | ✓ | ✓ |
+
+Sui portatili il piano energetico e l'ibernazione restano invariati.
+
+Ogni tweak, con il motivo, è in [`config/tweaks.psd1`](config/tweaks.psd1).
+
+## Sessione di gioco
+
+Parte da sola all'accesso. Quando apri un gioco:
+
+- spegne le notifiche di Windows
+- sospende OneDrive, Teams, Widget, Collegamento al telefono (0% CPU, 0 I/O)
+- ferma il download degli aggiornamenti, l'upload P2P e l'indicizzazione dei file
+
+Quando chiudi il gioco, dopo 15 secondi rimette tutto com'era.
+
+Riconosce i giochi per nome (VALORANT, CS2, League of Legends, Fortnite,
+Apex, Rainbow Six, Call of Duty, Overwatch, Rocket League, PUBG, Marvel
+Rivals, GTA V) e qualsiasi eseguibile nelle cartelle di Steam, Epic, Riot,
+Xbox, EA e Ubisoft. Lista dei giochi e dei processi da sospendere in
+[`config/session.psd1`](config/session.psd1).
+
+Per provare la configurazione con un gioco aperto:
+
+```powershell
+C:\ItsmeOS\Start-ItsmeGameSession.ps1 -Once
+```
+
+## Creare la ISO
+
+Serve un PC con Windows 10 o 11, 25 GB liberi e circa 30-45 minuti.
+
+1. Scarica la ISO ufficiale di Windows 11 da
+   [microsoft.com/software-download/windows11](https://www.microsoft.com/software-download/windows11)
+2. Installa i Deployment Tools di Windows ADK (servono per `oscdimg`):
+   ```powershell
+   winget install Microsoft.WindowsADK
+   ```
+3. Scarica questo repository, apri PowerShell **come amministratore** nella
+   sua cartella e lancia:
+   ```powershell
+   Set-ExecutionPolicy -Scope Process Bypass
+   .\build-iso.ps1 -IsoPath D:\Win11_24H2_Italian_x64.iso -Preset Competitive -LocalUser TuoNome
+   ```
+4. Scrivi la ISO generata su una chiavetta con [Rufus](https://rufus.ie) o
+   [Ventoy](https://www.ventoy.net) e installa come un Windows normale.
+
+Opzioni di `build-iso.ps1`:
+
+| Opzione | |
+|---|---|
+| `-Preset` | `Competitive`, `Balanced` (predefinito) o `Streaming` |
+| `-Edition` | edizione da tenere, predefinita `Windows 11 Pro` |
+| `-LocalUser` | crea un account locale e salta l'account Microsoft (password vuota, impostala al primo accesso) |
+| `-DisableVBS` | spegne VBS e HVCI (vedi sotto) |
+| `-Esd` | ISO più piccola, creazione più lenta |
+| `-OutputIso` | percorso della ISO generata |
+
+Consiglio: durante la creazione escludi la cartella `C:\ItsmeOS-build` dalla
+scansione in tempo reale di Defender, la creazione è molto più veloce.
+
+## Usarlo su Windows già installato
+
+Non serve reinstallare. Da PowerShell come amministratore, nella cartella del
+repository:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\Set-ItsmeProfile.ps1 -Preset Competitive
+```
+
+Poi riavvia. Su ItsmeOS installato dalla ISO gli script sono in `C:\ItsmeOS`.
+
+## Tornare indietro
+
+```powershell
+.\Set-ItsmeProfile.ps1 -Rollback
+```
+
+Ripristina ogni valore di registro, servizio, piano energetico, ibernazione
+e spazio riservato com'era prima del primo profilo applicato, e rimuove la
+sessione di gioco. Le app tolte dalla ISO si reinstallano dal Microsoft
+Store.
+
+## VBS e HVCI
+
+`-DisableVBS` spegne la sicurezza basata sulla virtualizzazione
+(Isolamento core). In alcuni giochi vale qualche punto percentuale, ma
+riduce la protezione del kernel da driver malevoli. È spenta di default:
+attivala solo se misuri un guadagno sul tuo PC.
+
+## Cosa non facciamo
+
+- **Non disattiviamo Windows Update né Defender.** Li limitiamo: niente
+  riavvii automatici, niente driver GPU sostituiti, niente download mentre
+  giochi. Un PC da gaming senza aggiornamenti di sicurezza è un bersaglio.
+- **Non rimuoviamo componenti di sistema** (Edge WebView2, .NET, servizi
+  Xbox, codec): giochi, launcher, OBS e anti-cheat ne hanno bisogno.
+- **Non aggiriamo TPM e Secure Boot**: Vanguard e FACEIT li richiedono.
+
+## Struttura
+
+| File | |
+|---|---|
+| `build-iso.ps1` | crea la ISO |
+| `Set-ItsmeProfile.ps1` | applica un profilo o fa il rollback |
+| `Start-ItsmeGameSession.ps1` | sessione di gioco senza interruzioni |
+| `ItsmeOS.psm1` | motore: registro online e offline, backup, rollback |
+| `config/tweaks.psd1` | tutti i tweak, per profilo |
+| `config/session.psd1` | giochi, processi da sospendere, servizi da mettere in pausa |
+| `config/appx-remove.txt` | app rimosse dalla ISO |
+| `config/capabilities-remove.txt` | funzionalità opzionali rimosse dalla ISO |
+| `setup/SetupComplete.cmd` | applica il profilo al primo avvio |
+| `tests/` | prova profili e rollback su Windows (in CI) |
+
+## Da verificare
+
+La CI applica ogni profilo e fa il rollback su Windows a ogni commit. Restano
+da provare su PC e VM:
+
+- [ ] `build-iso.ps1` con la ISO italiana di Windows 11 24H2 e 25H2
+- [ ] installazione da chiavetta, primo avvio con `-LocalUser`
+- [ ] `SetupComplete.cmd` applica il profilo (log in `C:\ItsmeOS\logs`)
+- [ ] le notifiche si spengono davvero durante il gioco senza riavviare Explorer
+- [ ] VALORANT (Vanguard) e CS2 su FACEIT partono senza errori
+- [ ] misure prima/dopo con CapFrameX: FPS medi, 1% low, frame time
+- [ ] RAM, processi e spazio su disco a riposo
+
+## Prossimi passi
+
+- affinità degli interrupt (GPU e scheda di rete su core diversi da quelli del gioco)
+- rilevamento dei giochi a schermo intero, oltre alla lista
+- interfaccia grafica per scegliere profilo e opzioni
+
+## Licenza
+
+[GPL-3.0](LICENSE). Puoi usarlo, modificarlo e ridistribuirlo, ma chi
+pubblica una versione modificata deve rilasciarne il codice con la stessa
+licenza.

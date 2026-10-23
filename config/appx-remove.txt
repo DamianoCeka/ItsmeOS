@@ -1,0 +1,36 @@
+# App preinstallate rimosse dalla ISO (nome del pacchetto provisioned).
+# Una per riga, # per i commenti. Si reinstallano tutte dal Microsoft Store.
+#
+# Restano sempre: Microsoft Store, App Installer (winget), Xbox app, Xbox
+# Identity Provider, Game Bar, Sicurezza di Windows, Foto, Blocco note,
+# Calcolatrice, Terminale, Paint, Strumento di cattura, Fotocamera,
+# Lettore multimediale e i codec (HEVC, AV1, WebP...) che servono a OBS.
+
+Clipchamp.Clipchamp
+Microsoft.549981C3F5F10              # Cortana
+Microsoft.BingNews
+Microsoft.BingSearch
+Microsoft.BingWeather
+Microsoft.Copilot
+Microsoft.GetHelp
+Microsoft.Getstarted                 # Suggerimenti
+Microsoft.MicrosoftOfficeHub
+Microsoft.MicrosoftSolitaireCollection
+Microsoft.MicrosoftStickyNotes
+Microsoft.OutlookForWindows
+Microsoft.People
+Microsoft.PowerAutomateDesktop
+Microsoft.Todos
+Microsoft.Windows.Ai.Copilot.Provider
+Microsoft.Windows.DevHome
+Microsoft.WindowsAlarms
+Microsoft.WindowsFeedbackHub
+Microsoft.WindowsMaps
+Microsoft.WindowsSoundRecorder
+Microsoft.YourPhone                  # Collegamento al telefono
+Microsoft.ZuneVideo                  # Film e TV
+microsoft.windowscommunicationsapps  # Posta e Calendario (dismessa)
+MicrosoftCorporationII.MicrosoftFamily
+MicrosoftCorporationII.QuickAssist
+MicrosoftTeams
+MSTeams
