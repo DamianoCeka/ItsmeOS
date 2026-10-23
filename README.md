@@ -26,9 +26,20 @@ può leggere ogni riga di quello che cambia.
 
 ## Compatibilità con gli anti-cheat
 
-ItsmeOS non tocca TPM 2.0, Secure Boot, Defender né i componenti di sistema
-che servono agli anti-cheat. **Vanguard (VALORANT, League of Legends), FACEIT,
-Easy Anti-Cheat e BattlEye funzionano come su Windows originale.**
+Gli anti-cheat chiedono sempre più sicurezza a Windows:
+
+- **Vanguard** (VALORANT, League of Legends) può richiedere TPM 2.0, Secure
+  Boot, Memory Integrity (HVCI) e IOMMU. Senza, il gioco non parte (errori
+  VAN 9001, VAN 9003, VAN:RESTRICTION:5).
+- **FACEIT** richiede TPM 2.0 e Secure Boot a tutti dal 25 novembre 2025,
+  VBS e IOMMU sopra i 3000 Elo, e Windows aggiornato.
+- **Call of Duty** (Ricochet), **Battlefield 6**, i tornei di **Fortnite** e
+  alcuni server di **Rust** (Easy Anti-Cheat) richiedono TPM 2.0 e Secure Boot.
+
+ItsmeOS lascia acceso tutto questo: TPM, Secure Boot, VBS, Memory Integrity,
+Defender e gli aggiornamenti di sicurezza. Non aggira i controlli
+hardware dell'installazione. Diversi progetti simili invece spengono VBS
+di default (vedi [Differenze con gli altri progetti](#differenze-con-gli-altri-progetti)).
 
 La sessione di gioco non apre il processo del gioco: legge solo il percorso
 dell'eseguibile, come fa Gestione attività.
@@ -46,25 +57,71 @@ dell'eseguibile, come fa Gestione attività.
 
 | Situazione | FPS medi | 1% low (scatti) |
 |---|---|---|
-| Esport limitati dalla CPU (VALORANT, CS2, Fortnite competitivo, 300+ FPS) | +3-8% | +8-15% |
-| PC medio o portatile (6 core, 16 GB) | +5-12% | +10-25% |
-| Mentre Windows lavora in background (aggiornamenti, indicizzazione, OneDrive) | +5-15% | +20-40% |
-| Tripla A limitati dalla GPU (1440p-4K, sotto i 144 FPS) | +0-2% | +3-8% |
-| In più con `-DisableVBS` | +0-10% | simile |
+| Esport limitati dalla CPU (VALORANT, CS2, Fortnite competitivo, 300+ FPS) | +2-8% | +3-10% |
+| PC medio o portatile (6 core, 16 GB) | +3-10% | +5-15% |
+| Mentre Windows lavora in background (aggiornamenti, indicizzazione, OneDrive) | +5-15% | +10-30% |
+| Tripla A limitati dalla GPU (1440p-4K, sotto i 144 FPS) | +0-2% | +0-5% |
 
 Esempio su VALORANT con un PC da 400 FPS medi e 1% low a 220: con
-Competitive ci aspettiamo circa 415-430 FPS medi e 1% low tra 240 e 255.
-Soprattutto, spariscono gli scatti causati da Windows a metà partita.
+Competitive ci aspettiamo circa 410-430 FPS medi e 1% low tra 225 e 240.
+La differenza più grande si sente quando Windows lavora in background:
+spariscono gli scatti causati da aggiornamenti, indicizzazione e notifiche
+a metà partita.
 
 Il guadagno principale è nella **stabilità dei frame** (1% low, frame time
 regolari) e nell'**assenza di interruzioni**, non negli FPS medi. Più il PC è
 potente e il gioco pesa sulla GPU, meno si guadagna. Chi promette +50% FPS
 da un tweak di Windows sta vendendo qualcosa.
 
-Sono stime basate su test pubblici di ottimizzazioni simili (Atlas, ReviOS,
-tweak di scheduler e timer), non ancora su ItsmeOS. Le misureremo con
+Le prime due righe si basano sull'unico test indipendente trovato su un
+progetto simile: PC Games Hardware, marzo 2024, AtlasOS 0.3.2 contro
+Windows 11 23H2 su 11 giochi a 1080p. FPS medi da +2% a +8%, 1% low fino a
++8%, RAM a riposo 1,6 GB contro 2,4. Le righe sul carico in background sono
+nostre stime, non ancora misurate. Le misureremo con
 CapFrameX o PresentMon prima e dopo, sullo stesso PC e sulle stesse partite,
 e sostituiremo questa tabella con i risultati reali.
+
+## Differenze con gli altri progetti
+
+| | Come funziona | VBS / Memory Integrity | Defender e Update | Torna indietro senza reinstallare | Durante il gioco |
+|---|---|---|---|---|---|
+| **ItsmeOS** | ISO personale dalla tua ISO ufficiale, oppure profilo su Windows già installato | restano accesi (`-DisableVBS` opzionale) | Defender acceso, Update attivi senza riavvii forzati | sì, ai tuoi valori di partenza | notifiche spente, app in background sospese, Update in pausa |
+| **AtlasOS** | playbook AME Wizard su Windows appena installato | opzione "Disattiva isolamento core" attiva di default | Defender acceso, aggiornamenti automatici spenti di default | no, si reinstalla | nessuna funzione automatica |
+| **ReviOS** | playbook AME Wizard | spenti sempre | Defender rimosso di default, Update in pausa fino al 2038 | in parte, dalla 25.10 | nessuna funzione automatica |
+| **tiny11** | ISO ridotta da installare da zero, salta i controlli TPM/Secure Boot del setup | non documentato | standard: restano; Core: tolti | no | nessuna funzione automatica |
+| **WinUtil** | tweak su Windows installato e creatore ISO | non li tocca | Defender intatto, Update a scelta | in parte, ai default di Windows | nessuna funzione automatica |
+| **ISO già modificate** (Ghost Spectre e simili) | ISO scaricate da terzi, pensate anche per PC senza TPM | non documentato | esistono versioni senza Defender, Update sospendibili fino al 2077 | no | non documentato |
+| **Game Mode, Razer Cortex, Process Lasso** | impostazioni o app sopra Windows normale | non li toccano | Defender intatto; Game Mode blocca driver e riavvii mentre giochi | sì, è tutto temporaneo | priorità al gioco, "Non disturbare", chiusura processi |
+
+In sintesi, cosa cambia con ItsmeOS:
+
+- **Anti-cheat**: non spegne la sicurezza che Vanguard e FACEIT richiedono.
+  Atlas e ReviOS spengono VBS di default; FACEIT dichiara di non supportare i
+  Windows modificati che bloccano gli aggiornamenti.
+- **Rollback ai tuoi valori**: ogni modifica si annulla senza reinstallare.
+  WinUtil torna ai default di Windows, Atlas e tiny11 richiedono una
+  reinstallazione.
+- **Sessione di gioco nello stesso strumento**: i progetti di debloat non
+  fanno nulla mentre giochi. Game Mode e i game booster fanno pezzi simili;
+  ItsmeOS in più ferma aggiornamenti e indicizzazione, non apre mai il
+  processo del gioco e non chiede un account.
+- **Profilo Streaming** per chi gioca e trasmette con OBS sullo stesso PC.
+
+Dove gli altri sono avanti: anni di uso reale e community grandi (Atlas,
+tiny11, WinUtil), un'interfaccia grafica, toggle singoli, configurazioni
+esportabili e punti di ripristino. Sono nei prossimi passi.
+
+Fonti: [Riot, requisiti di sicurezza di Vanguard](https://support.riotgames.com/riot/performance/vanguard-security-requirements),
+[Riot, VAN:RESTRICTION:5](https://support.riotgames.com/riot/penalties/error-van-restriction-5),
+[FACEIT, requisiti di sicurezza di Windows](https://support.faceit.com/hc/en-us/articles/23117181142556-Windows-Security-Requirements-FAQ),
+[FACEIT, aggiornamenti mancanti](https://support.faceit.com/hc/en-us/articles/360014237719-Your-system-is-missing-important-Windows-security-updates),
+[Atlas, playbook.conf](https://github.com/Atlas-OS/Atlas/blob/main/src/playbook/playbook.conf),
+[Atlas, tornare indietro](https://docs.atlasos.net/faq/install-faq/reverting-atlas/),
+[ReviOS, vbs.yml](https://github.com/meetrevision/playbook/blob/main/src/Configuration/Tasks/registry/security/vbs.yml),
+[tiny11builder](https://github.com/ntdevlabs/tiny11builder),
+[WinUtil, tweaks.json](https://github.com/ChrisTitusTech/winutil/blob/main/config/tweaks.json),
+[PC Games Hardware, AtlasOS contro Windows 11](https://www.pcgameshardware.de/Windows-11-Software-277633/Specials/AtlosOS-im-Vergleich-mit-Windows-11-1442750/).
+Verificato a ottobre 2026: questi progetti cambiano spesso.
 
 ## Profili
 
@@ -145,7 +202,7 @@ Opzioni di `build-iso.ps1`:
 | `-Preset` | `Competitive`, `Balanced` (predefinito) o `Streaming` |
 | `-Edition` | edizione da tenere, predefinita `Windows 11 Pro` |
 | `-LocalUser` | crea un account locale e salta l'account Microsoft (password vuota, impostala al primo accesso) |
-| `-DisableVBS` | spegne VBS e HVCI (vedi sotto) |
+| `-DisableVBS` | spegne VBS e HVCI, sconsigliato con VALORANT e FACEIT (vedi sotto) |
 | `-Esd` | ISO più piccola, creazione più lenta |
 | `-OutputIso` | percorso della ISO generata |
 
@@ -179,8 +236,12 @@ Store.
 
 `-DisableVBS` spegne la sicurezza basata sulla virtualizzazione
 (Isolamento core). In alcuni giochi vale qualche punto percentuale, ma
-riduce la protezione del kernel da driver malevoli. È spenta di default:
-attivala solo se misuri un guadagno sul tuo PC.
+riduce la protezione del kernel da driver malevoli.
+
+**Non usarlo se giochi a VALORANT o su FACEIT.** Vanguard può bloccare il
+gioco quando Memory Integrity non è attivo (errore VAN:RESTRICTION:5), e
+FACEIT richiede VBS sopra i 3000 Elo. È spenta di default: usala solo per
+giochi senza anti-cheat kernel e solo se misuri un guadagno sul tuo PC.
 
 ## Cosa non facciamo
 
@@ -224,6 +285,9 @@ da provare su PC e VM:
 - affinità degli interrupt (GPU e scheda di rete su core diversi da quelli del gioco)
 - rilevamento dei giochi a schermo intero, oltre alla lista
 - interfaccia grafica per scegliere profilo e opzioni
+- attivare e disattivare i singoli tweak, non solo i profili interi
+- esportare e importare una configurazione (stessa config su tutti i PC di un team o di un evento)
+- punto di ripristino di Windows prima di applicare un profilo
 
 ## Licenza
 

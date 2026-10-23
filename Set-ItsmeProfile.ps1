@@ -16,8 +16,10 @@
     Streaming    gioco e OBS sullo stesso PC
 
 .PARAMETER DisableVBS
-    Spegne VBS e HVCI (Core isolation). Qualche punto percentuale in più in
-    alcuni giochi, meno protezione del kernel. Richiede un riavvio.
+    Spegne VBS e HVCI (Isolamento core). Qualche punto percentuale in più in
+    alcuni giochi, meno protezione del kernel. Non usarlo se giochi a
+    VALORANT o su FACEIT: Vanguard e FACEIT possono richiedere Memory
+    Integrity attivo e bloccare il gioco. Richiede un riavvio.
 
 .PARAMETER NoGameSession
     Non installa la sessione di gioco automatica (notifiche spente e

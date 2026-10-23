@@ -32,7 +32,8 @@
     La password è vuota: impostala al primo accesso.
 
 .PARAMETER DisableVBS
-    Spegne VBS e HVCI nell'immagine (vedi README).
+    Spegne VBS e HVCI nell'immagine. Sconsigliato con VALORANT e FACEIT
+    (vedi README).
 
 .PARAMETER Esd
     Comprime l'immagine in install.esd: ISO molto più piccola, creazione

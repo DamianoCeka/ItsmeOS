@@ -340,9 +340,10 @@ function Get-ItsmeOperation {
 }
 
 function Get-ItsmeVbsOperation {
-    # Opzionale: VBS/HVCI spenti valgono qualche punto percentuale in alcuni
-    # giochi ma riducono la protezione del kernel. Vanguard e FACEIT
-    # funzionano in entrambi i casi.
+    # Opzionale e sconsigliato per il competitivo: VBS/HVCI spenti valgono
+    # qualche punto percentuale in alcuni giochi, ma Vanguard può bloccare
+    # VALORANT se Memory Integrity non è attivo (VAN:RESTRICTION:5) e FACEIT
+    # richiede VBS sopra i 3000 Elo.
     @{ Id = 'vbs.off'; Hive = 'SYSTEM'; Path = 'Control\DeviceGuard'; Name = 'EnableVirtualizationBasedSecurity'; Type = 'DWord'; Value = 0; Delete = $false; RequireKey = $false; Note = '' }
     @{ Id = 'hvci.off'; Hive = 'SYSTEM'; Path = 'Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity'; Name = 'Enabled'; Type = 'DWord'; Value = 0; Delete = $false; RequireKey = $false; Note = '' }
 }
