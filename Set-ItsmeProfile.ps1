@@ -64,7 +64,7 @@ function Test-HasBattery {
 }
 
 function Get-ActiveSchemeGuid {
-    $out = (& powercfg.exe /getactivescheme) -join ' '
+    $out = (Invoke-ItsmeNative powercfg.exe @('/getactivescheme')).Output
     if ($out -match '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})') { return $Matches[1] }
     return $null
 }
@@ -78,15 +78,15 @@ function Set-ItsmePowerPlan {
     }
     if (-not $State.Actions.ContainsKey('PowerScheme')) { $State.Actions['PowerScheme'] = Get-ActiveSchemeGuid }
 
-    & powercfg.exe /query $ItsmeSchemeGuid *> $null
-    if ($LASTEXITCODE -ne 0) {
-        & powercfg.exe /duplicatescheme $UltimateSchemeGuid $ItsmeSchemeGuid | Out-Null
-        if ($LASTEXITCODE -ne 0) { Write-ItsmeLog 'Impossibile creare il piano Prestazioni eccellenti' 'WARN'; return }
-        & powercfg.exe /changename $ItsmeSchemeGuid 'ItsmeOS' 'Prestazioni massime per il gaming' | Out-Null
+    if ((Invoke-ItsmeNative powercfg.exe @('/query', $ItsmeSchemeGuid)).ExitCode -ne 0) {
+        $created = Invoke-ItsmeNative powercfg.exe @('/duplicatescheme', $UltimateSchemeGuid, $ItsmeSchemeGuid)
+        if ($created.ExitCode -ne 0) { Write-ItsmeLog "Impossibile creare il piano Prestazioni eccellenti: $($created.Output)" 'WARN'; return }
+        [void](Invoke-ItsmeNative powercfg.exe @('/changename', $ItsmeSchemeGuid, 'ItsmeOS', 'Prestazioni massime per il gaming'))
     }
     # Core parking spento: tutti i core restano pronti, niente risvegli a metà frame
-    & powercfg.exe /setacvalueindex $ItsmeSchemeGuid SUB_PROCESSOR CPMINCORES 100 | Out-Null
-    & powercfg.exe /setactive $ItsmeSchemeGuid | Out-Null
+    [void](Invoke-ItsmeNative powercfg.exe @('/setacvalueindex', $ItsmeSchemeGuid, 'SUB_PROCESSOR', 'CPMINCORES', '100'))
+    $active = Invoke-ItsmeNative powercfg.exe @('/setactive', $ItsmeSchemeGuid)
+    if ($active.ExitCode -ne 0) { Write-ItsmeLog "Piano energetico non attivato: $($active.Output)" 'WARN'; return }
     Write-ItsmeLog 'Piano energetico ItsmeOS attivo (Prestazioni eccellenti, core parking spento)' 'OK'
 }
 
@@ -96,7 +96,7 @@ function Set-ItsmeHibernation {
     if (-not $State.Actions.ContainsKey('HibernateEnabled')) {
         $State.Actions['HibernateEnabled'] = (Get-ItsmeValue -Hive SYSTEM -Path 'Control\Power' -Name 'HibernateEnabled').Value
     }
-    & powercfg.exe /hibernate off | Out-Null
+    [void](Invoke-ItsmeNative powercfg.exe @('/hibernate', 'off'))
     Write-ItsmeLog 'Ibernazione spenta: liberato hiberfil.sys (circa il 40% della RAM su disco)' 'OK'
 }
 
@@ -175,12 +175,12 @@ function Invoke-Rollback {
     Write-ItsmeLog "Registro: $restored valori ripristinati" 'OK'
 
     if ($state.Actions.ContainsKey('PowerScheme') -and $state.Actions['PowerScheme']) {
-        & powercfg.exe /setactive $state.Actions['PowerScheme'] | Out-Null
-        & powercfg.exe /delete $ItsmeSchemeGuid 2>$null | Out-Null
+        [void](Invoke-ItsmeNative powercfg.exe @('/setactive', $state.Actions['PowerScheme']))
+        [void](Invoke-ItsmeNative powercfg.exe @('/delete', $ItsmeSchemeGuid))
         Write-ItsmeLog 'Piano energetico originale ripristinato' 'OK'
     }
     if ($state.Actions.ContainsKey('HibernateEnabled') -and [int]$state.Actions['HibernateEnabled'] -eq 1) {
-        & powercfg.exe /hibernate on | Out-Null
+        [void](Invoke-ItsmeNative powercfg.exe @('/hibernate', 'on'))
         Write-ItsmeLog 'Ibernazione riattivata' 'OK'
     }
     if ($state.Actions.ContainsKey('ReservedStorage') -and $state.Actions['ReservedStorage'] -eq 'Enabled') {

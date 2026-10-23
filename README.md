@@ -42,13 +42,29 @@ dell'eseguibile, come fa Gestione attività.
 | Processi a riposo | 150-200 | 90-120 |
 | Interruzioni durante il gioco | notifiche, aggiornamenti, popup | nessuna |
 
-Il guadagno principale è nella **stabilità dei frame** (1% low, frame time
-regolari) e nell'**assenza di interruzioni**, non negli FPS medi, che di
-solito salgono del 1-5%. Chi promette +50% FPS da un tweak di Windows sta
-vendendo qualcosa.
+### Stima: quanto meglio gira un gioco rispetto a Windows normale
 
-I numeri della tabella sono obiettivi: li misureremo con CapFrameX o
-PresentMon prima e dopo, sulle stesse partite, e li pubblicheremo qui.
+| Situazione | FPS medi | 1% low (scatti) |
+|---|---|---|
+| Esport limitati dalla CPU (VALORANT, CS2, Fortnite competitivo, 300+ FPS) | +3-8% | +8-15% |
+| PC medio o portatile (6 core, 16 GB) | +5-12% | +10-25% |
+| Mentre Windows lavora in background (aggiornamenti, indicizzazione, OneDrive) | +5-15% | +20-40% |
+| Tripla A limitati dalla GPU (1440p-4K, sotto i 144 FPS) | +0-2% | +3-8% |
+| In più con `-DisableVBS` | +0-10% | simile |
+
+Esempio su VALORANT con un PC da 400 FPS medi e 1% low a 220: con
+Competitive ci aspettiamo circa 415-430 FPS medi e 1% low tra 240 e 255.
+Soprattutto, spariscono gli scatti causati da Windows a metà partita.
+
+Il guadagno principale è nella **stabilità dei frame** (1% low, frame time
+regolari) e nell'**assenza di interruzioni**, non negli FPS medi. Più il PC è
+potente e il gioco pesa sulla GPU, meno si guadagna. Chi promette +50% FPS
+da un tweak di Windows sta vendendo qualcosa.
+
+Sono stime basate su test pubblici di ottimizzazioni simili (Atlas, ReviOS,
+tweak di scheduler e timer), non ancora su ItsmeOS. Le misureremo con
+CapFrameX o PresentMon prima e dopo, sullo stesso PC e sulle stesse partite,
+e sostituiremo questa tabella con i risultati reali.
 
 ## Profili
 
@@ -94,6 +110,8 @@ Apex, Rainbow Six, Call of Duty, Overwatch, Rocket League, PUBG, Marvel
 Rivals, GTA V) e qualsiasi eseguibile nelle cartelle di Steam, Epic, Riot,
 Xbox, EA e Ubisoft. Lista dei giochi e dei processi da sospendere in
 [`config/session.psd1`](config/session.psd1).
+
+Cosa ha fatto in ogni partita è scritto in `%LOCALAPPDATA%\ItsmeOS\session.log`.
 
 Per provare la configurazione con un gioco aperto:
 

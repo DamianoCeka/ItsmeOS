@@ -16,7 +16,8 @@
     gli anti-cheat (Vanguard, FACEIT, EAC, BattlEye).
 
     Se lo script si interrompe a metà partita, al riavvio successivo
-    ripristina quanto lasciato in sospeso (state\session.json).
+    ripristina quanto lasciato in sospeso. Stato e log sono per utente, in
+    %LOCALAPPDATA%\ItsmeOS.
 
 .PARAMETER Once
     Controlla una volta, stampa i giochi trovati ed esce. Utile per provare
@@ -29,8 +30,11 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'ItsmeOS.psm1') -Force
 
 $Config = Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'config\session.psd1')
-$SessionPath = Join-Path $PSScriptRoot 'state\session.json'
-$LogPath = Join-Path $PSScriptRoot 'logs\session.log'
+# Per utente: la sessione tocca le sue notifiche e i suoi processi, e un
+# utente standard non può scrivere in C:\ItsmeOS
+$UserDir = Join-Path $env:LOCALAPPDATA 'ItsmeOS'
+$SessionPath = Join-Path $UserDir 'session.json'
+$LogPath = Join-Path $UserDir 'session.log'
 $MySession = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
 
 # Toggle principale "Notifiche" di Impostazioni e il suo gemello del Centro notifiche
@@ -85,9 +89,12 @@ public static class ItsmeNative {
 
 function Write-SessionLog {
     param([string]$Message)
-    $dir = Split-Path -Parent $LogPath
-    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    Add-Content -LiteralPath $LogPath -Value ('[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message) -Encoding UTF8
+    if (-not (Test-Path -LiteralPath $UserDir)) { New-Item -ItemType Directory -Path $UserDir -Force | Out-Null }
+    try {
+        Add-Content -LiteralPath $LogPath -Value ('[{0:yyyy-MM-dd HH:mm:ss}] {1}' -f (Get-Date), $Message) -Encoding UTF8
+    } catch {
+        # Il log non deve mai fermare la sessione
+    }
 }
 
 function Test-IsGame {
@@ -105,8 +112,7 @@ function Test-IsGame {
 
 function Save-Session {
     param($Session)
-    $dir = Split-Path -Parent $SessionPath
-    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $UserDir)) { New-Item -ItemType Directory -Path $UserDir -Force | Out-Null }
     $Session | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $SessionPath -Encoding UTF8
 }
 

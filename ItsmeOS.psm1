@@ -35,6 +35,21 @@ function Write-ItsmeLog {
     }
 }
 
+function Invoke-ItsmeNative {
+    # In Windows PowerShell 5.1, con ErrorActionPreference Stop, una riga su
+    # stderr di un eseguibile (powercfg, reg) diventa un errore che ferma lo
+    # script anche se il comando è riuscito. Conta solo il codice di uscita.
+    param([Parameter(Mandatory)][string]$FilePath, [string[]]$ArgumentList = @())
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $FilePath @ArgumentList 2>&1 | ForEach-Object { "$_" }
+        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output -join "`n") }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
 # --- Modalità offline (immagine montata) -----------------------------------
 
 function Enable-ItsmeOfflineMode {
@@ -49,8 +64,8 @@ function Enable-ItsmeOfflineMode {
         if (-not (Test-Path -LiteralPath $hives[$name])) {
             throw "Hive non trovata: $($hives[$name])"
         }
-        & reg.exe load "HKLM\$name" $hives[$name] | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "reg load fallito per $name" }
+        $result = Invoke-ItsmeNative reg.exe @('load', "HKLM\$name", $hives[$name])
+        if ($result.ExitCode -ne 0) { throw "reg load fallito per $($name): $($result.Output)" }
         $script:LoadedHives.Add($name)
     }
 
@@ -74,8 +89,8 @@ function Disable-ItsmeOfflineMode {
     foreach ($name in @($script:LoadedHives)) {
         $unloaded = $false
         for ($i = 0; $i -lt 5 -and -not $unloaded; $i++) {
-            & reg.exe unload "HKLM\$name" 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { $unloaded = $true } else { Start-Sleep -Seconds 1; [GC]::Collect() }
+            if ((Invoke-ItsmeNative reg.exe @('unload', "HKLM\$name")).ExitCode -eq 0) { $unloaded = $true }
+            else { Start-Sleep -Seconds 1; [GC]::Collect() }
         }
         if ($unloaded) { [void]$script:LoadedHives.Remove($name) }
         else { Write-ItsmeLog "Impossibile scaricare HKLM\$name, chiudi regedit e riprova" 'ERROR' }
@@ -169,6 +184,19 @@ function Set-ItsmeValue {
     try { $key.SetValue($Name, $data, [Microsoft.Win32.RegistryValueKind]$Type) } finally { $key.Dispose() }
 }
 
+function Set-ItsmeServiceStart {
+    # Online passa dal gestore dei servizi: alcune chiavi Services\* sono
+    # protette e non si scrivono direttamente nemmeno da amministratore.
+    param([string]$Name, [int]$Start)
+    $types = @{ 2 = 'Automatic'; 3 = 'Manual'; 4 = 'Disabled' }
+    if (-not $types.ContainsKey($Start)) { throw "Tipo di avvio non gestito: $Start" }
+    try {
+        Set-Service -Name $Name -StartupType $types[$Start] -ErrorAction Stop
+    } catch {
+        Set-ItsmeValue -Hive SYSTEM -Path "Services\$Name" -Name 'Start' -Type DWord -Value $Start
+    }
+}
+
 function Remove-ItsmeValue {
     param([string]$Hive, [string]$Path, [string]$Name)
     $key = Open-ItsmeKey -Hive $Hive -Path $Path -Write
@@ -199,8 +227,10 @@ function Read-ItsmeState {
     if ($props['Preset']) { $state.Preset = $json.Preset }
     if ($props['Registry'] -and $json.Registry) {
         foreach ($e in @($json.Registry)) {
+            $service = $null
+            if ($e.PSObject.Properties['Service']) { $service = $e.Service }
             [void]$state.Registry.Add(@{
-                    Hive = $e.Hive; Path = $e.Path; Name = $e.Name
+                    Hive = $e.Hive; Path = $e.Path; Name = $e.Name; Service = $service
                     Existed = [bool]$e.Existed; Type = $e.Type; Value = $e.Value
                 })
         }
@@ -221,13 +251,14 @@ function Save-ItsmeState {
 function Add-ItsmeOriginal {
     # Registra il valore originale solo la prima volta: cambiando profilo
     # più volte, il rollback torna comunque allo stato di partenza.
-    param($State, [string]$Hive, [string]$Path, [string]$Name)
+    param($State, [string]$Hive, [string]$Path, [string]$Name, [string]$Service)
     foreach ($e in $State.Registry) {
         if ($e.Hive -eq $Hive -and $e.Path -eq $Path -and $e.Name -eq $Name) { return }
     }
     $current = Get-ItsmeValue -Hive $Hive -Path $Path -Name $Name
+    if (-not $Service) { $Service = $null }
     [void]$State.Registry.Add(@{
-            Hive = $Hive; Path = $Path; Name = $Name
+            Hive = $Hive; Path = $Path; Name = $Name; Service = $Service
             Existed = $current.Exists; Type = $current.Type; Value = $current.Value
         })
 }
@@ -244,7 +275,11 @@ function Restore-ItsmeRegistry {
                     Write-ItsmeLog "Tipo $($e.Type) non ripristinabile: $($e.Hive)\$($e.Path)\$($e.Name)" 'WARN'
                     continue
                 }
-                Set-ItsmeValue -Hive $e.Hive -Path $e.Path -Name $e.Name -Type $e.Type -Value $e.Value
+                if ($e.Service -and -not $script:Offline) {
+                    Set-ItsmeServiceStart -Name $e.Service -Start $e.Value
+                } else {
+                    Set-ItsmeValue -Hive $e.Hive -Path $e.Path -Name $e.Name -Type $e.Type -Value $e.Value
+                }
             } else {
                 Remove-ItsmeValue -Hive $e.Hive -Path $e.Path -Name $e.Name
             }
@@ -297,7 +332,7 @@ function Get-ItsmeOperation {
         $note = ''
         if ($s.ContainsKey('Note')) { $note = $s.Note }
         @{
-            Id = "service.$($s.Name)"; Hive = 'SYSTEM'; Path = "Services\$($s.Name)"; Name = 'Start'
+            Id = "service.$($s.Name)"; Service = $s.Name; Hive = 'SYSTEM'; Path = "Services\$($s.Name)"; Name = 'Start'
             Type = 'DWord'; Value = $script:StartTypes[$s.Start[$Preset]]; Delete = $false
             RequireKey = $true; Note = $note
         }
@@ -356,9 +391,13 @@ function Invoke-ItsmeOperation {
                 $skipped++
                 continue
             }
-            Add-ItsmeOriginal -State $State -Hive $op.Hive -Path $op.Path -Name $op.Name
+            $service = $null
+            if ($op.ContainsKey('Service')) { $service = $op.Service }
+            Add-ItsmeOriginal -State $State -Hive $op.Hive -Path $op.Path -Name $op.Name -Service $service
             if ($op.Delete) {
                 Remove-ItsmeValue -Hive $op.Hive -Path $op.Path -Name $op.Name
+            } elseif ($service -and -not $script:Offline) {
+                Set-ItsmeServiceStart -Name $service -Start $op.Value
             } else {
                 Set-ItsmeValue -Hive $op.Hive -Path $op.Path -Name $op.Name -Type $op.Type -Value $op.Value
             }
@@ -383,7 +422,7 @@ function Get-ItsmeListFile {
 }
 
 Export-ModuleMember -Function `
-    Write-ItsmeLog, Enable-ItsmeOfflineMode, Disable-ItsmeOfflineMode, `
+    Write-ItsmeLog, Invoke-ItsmeNative, Enable-ItsmeOfflineMode, Disable-ItsmeOfflineMode, `
     Test-ItsmeKey, Get-ItsmeSubKeyName, Get-ItsmeValue, Set-ItsmeValue, Remove-ItsmeValue, `
     New-ItsmeState, Read-ItsmeState, Save-ItsmeState, Restore-ItsmeRegistry, `
     Get-ItsmeOperation, Get-ItsmeVbsOperation, Get-ItsmeMsiOperation, Get-ItsmeNagleOperation, `
